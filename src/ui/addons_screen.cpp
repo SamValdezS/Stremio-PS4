@@ -104,7 +104,7 @@ std::string addon_server(const std::string &url) {
 const std::vector<Addon> &AddonsScreen::current_addons() const {
         if (filter_ == 0) return stremio().addons();
         const auto &state = *catalogs_[filter_ - 1];
-        if (filter_ != 1 || addon_query_.empty()) return state.items;
+        if (filter_ != 2 || addon_query_.empty()) return state.items;
         if (filtered_revision_ != state.revision
                 || filtered_query_ != addon_query_) {
                 filtered_addons_.clear();
@@ -141,7 +141,7 @@ void AddonsScreen::load_catalog(bool force) {
         // Public catalogs: community directory and official catalog.
         // No account credentials are sent to these endpoints.
         http::Request request;
-        request.url = index == 0
+        request.url = index == 1
                 ? "https://stremio-addons.net/api/addon_catalog/all/stremio-addons.net.json"
                 : "https://v3-cinemeta.strem.io/addon_catalog/all/official.json";
         request.max_body = 8 * 1024 * 1024;
@@ -186,8 +186,8 @@ void AddonsScreen::load_catalog(bool force) {
 void AddonsScreen::draw_filters(Renderer &r) {
         const i18n::Text labels[] = {
                 i18n::Text::ADDONS_FILTER_INSTALLED,
-                i18n::Text::ADDONS_FILTER_COMMUNITY,
-                i18n::Text::ADDONS_FILTER_OFFICIAL
+                i18n::Text::ADDONS_FILTER_OFFICIAL,
+                i18n::Text::ADDONS_FILTER_COMMUNITY
         };
         const float y = S(168);
         const float pad = S(6);
@@ -199,9 +199,20 @@ void AddonsScreen::draw_filters(Renderer &r) {
                         ui::chip_width(fonts_.body, i18n::tr(labels[i])));
                 total += widths[i];
         }
-        r.rounded_rect(MARGIN, y, total + 2 * pad, height + 2 * pad,
+        const float mark_gap = S(16);
+        const float box_x = MARGIN
+                + ui::kbd_width(fonts_.small, "L2") + mark_gap;
+        const float box_w = total + 2 * pad;
+        const float mark_y = y + pad + height / 2
+                + fonts_.small.size() * 0.36f;
+
+        r.rounded_rect(box_x, y, box_w, height + 2 * pad,
                 theme::radius_selector(), theme::BASE_200);
-        float x = MARGIN + pad;
+        ui::kbd(r, fonts_.small, "L2", MARGIN, mark_y);
+        ui::kbd(r, fonts_.small, "R2",
+                box_x + box_w + mark_gap, mark_y);
+
+        float x = box_x + pad;
         for (int i = 0; i < 3; ++i) {
                 ui::chip(r, fonts_.body, i18n::tr(labels[i]), x, y + pad,
                         widths[i], height, i == filter_,
@@ -209,8 +220,9 @@ void AddonsScreen::draw_filters(Renderer &r) {
                         theme::BASE_200);
                 x += widths[i];
         }
-        if (filter_ == 1) {
-                const float hint_x = x + S(26);
+        if (filter_ == 2) {
+                const float hint_x = box_x + box_w + mark_gap
+                        + ui::kbd_width(fonts_.small, "R2") + S(26);
                 const float available = W - MARGIN - hint_x;
                 if (available > S(40)) {
                         std::string label = std::string("\xE2\x96\xB3 ")
@@ -572,14 +584,65 @@ void AddonsScreen::draw_phone_config(Renderer &r) {
         r.text(fonts_.page_header,
                 fonts_.page_header.ellipsize(
                         i18n::tr(Text::ADDONS_PHONE_TITLE), W - 2 * MARGIN),
-                MARGIN, S(96), theme::BASE_CONTENT);
+                MARGIN, 100, theme::BASE_CONTENT);
+
+        r.text(fonts_.card_title,
+                fonts_.card_title.ellipsize(
+                        display_name(confirmed_addon_), W - 2 * MARGIN),
+                MARGIN, 156, theme::BASE_CONTENT);
+        r.text(fonts_.small,
+                fonts_.small.ellipsize(
+                        addon_server(confirmed_addon_.transport_url),
+                        W - 2 * MARGIN),
+                MARGIN, 195, theme::BASE_CONTENT_MUTED);
+
+        const float top = 235;
+        const float panel = 540;
+        const float px = W - MARGIN - panel;
+        const float py = top + 30;
+        const float left_w = px - MARGIN - 48;
+        const float pad = 30;
+
+        r.rounded_rect(MARGIN, top, left_w, 600,
+                theme::radius_box(), theme::BASE_200);
+        r.rounded_rect(px - 18, top, panel + 36, 600,
+                theme::radius_box(), theme::BASE_200);
+
+        const Text steps[] = {
+                Text::ADDONS_PHONE_STEP_SCAN,
+                Text::ADDONS_PHONE_STEP_INSTALL,
+                Text::ADDONS_PHONE_STEP_SYNC
+        };
+        for (int i = 0; i < 3; ++i) {
+                const float y = top + 28 + i * 150;
+                r.rounded_rect(MARGIN + pad, y, 46, 46,
+                        theme::radius_field(), theme::PRIMARY);
+                const std::string number = std::to_string(i + 1);
+                r.text(fonts_.card_title, number,
+                        MARGIN + pad + (46 - fonts_.card_title.measure(number)) / 2,
+                        y + 23 + fonts_.card_title.size() * 0.36f,
+                        theme::PRIMARY_CONTENT);
+
+                float baseline = y + fonts_.body.size();
+                for (const auto &line : fonts_.body.wrap(
+                        i18n::tr(steps[i]), left_w - 2 * pad - 68, 3)) {
+                        r.text(fonts_.body, line,
+                                MARGIN + pad + 68, baseline,
+                                theme::BASE_CONTENT);
+                        baseline += fonts_.body.size() * 1.3f;
+                }
+        }
+
+        float note_y = top + 508;
+        for (const auto &line : fonts_.small.wrap(
+                i18n::tr(Text::ADDONS_PHONE_SCAN_NOTE),
+                left_w - 2 * pad, 2)) {
+                r.text(fonts_.small, line,
+                        MARGIN + pad, note_y, theme::BASE_CONTENT_MUTED);
+                note_y += fonts_.small.size() * 1.3f;
+        }
 
         const int size = addon_config::qr_size(phone_qr_);
-        const float panel = std::min(S(520), 600.0f);
-        const float px = W - MARGIN - panel;
-        const float py = (1080 - panel) / 2;
-        const float text_w = px - MARGIN - S(48);
-
         r.rect(px, py, panel, panel, rgb(0xFFFFFF));
         if (size > 0) {
                 // Integer-sized modules, with at least a four-module quiet zone.
@@ -603,47 +666,23 @@ void AddonsScreen::draw_phone_config(Renderer &r) {
                 }
         }
 
-        r.text(fonts_.section,
-                fonts_.section.ellipsize(display_name(confirmed_addon_), text_w),
-                MARGIN, py + S(30), theme::BASE_CONTENT);
-        r.text(fonts_.small,
-                fonts_.small.ellipsize(
-                        addon_server(confirmed_addon_.transport_url), text_w),
-                MARGIN, py + S(70), theme::BASE_CONTENT_MUTED);
-
-        const float sync_y = 1080 - S(170);
-        const float line_height = S(32);
-        float baseline = py + S(130);
-        const float last_baseline = sync_y - S(32);
-        const int instruction_lines = baseline <= last_baseline
-                ? std::max(1, (int)((last_baseline - baseline) / line_height) + 1)
-                : 0;
-        if (instruction_lines > 0) {
-                for (const auto &line : fonts_.body.wrap(
-                        i18n::tr(Text::ADDONS_PHONE_HELP),
-                        text_w, instruction_lines)) {
-                        r.text(fonts_.body, line, MARGIN, baseline,
-                                theme::BASE_CONTENT_MUTED);
-                        baseline += line_height;
-                }
-        }
 
         const bool busy = phone_sync_pending_ || stremio().account_sync_busy();
         ui::chip(r, fonts_.body,
                 fonts_.body.ellipsize(i18n::tr(busy
                         ? Text::ADDONS_PHONE_SYNCING : Text::ADDONS_PHONE_SYNC),
-                        text_w - S(24)),
-                MARGIN, sync_y, text_w, S(56),
+                        left_w - 40),
+                MARGIN, 865, left_w, 64,
                 true, 1.0f, theme::BASE_100);
 
         ui::hints(r, fonts_.small,
                 {
                         { "\xC3\x97", i18n::tr(Text::ADDONS_PHONE_SYNC) },
-                        { "\xE2\x97\x8B", i18n::tr(Text::ADDONS_CANCEL) }
+                        { "\xE2\x97\x8B", i18n::tr(Text::ADDONS_HINT_BACK) }
                 },
-                MARGIN, 1080 - S(70));
+                MARGIN, 1005);
 
-        toast_.draw(r, fonts_.body, W / 2, S(135));
+        toast_.draw(r, fonts_.body, W / 2, 210);
 }
 
 void AddonsScreen::update_search(uint32_t pressed) {
@@ -683,26 +722,28 @@ void AddonsScreen::update_search(uint32_t pressed) {
 
 void AddonsScreen::draw_search(Renderer &r) {
         r.rect(0, 0, W, 1080, theme::BASE_100.with_alpha(0.96f));
-        const float w = std::min(S(1000), 1600.0f);
-        const float h = std::min(S(670), 900.0f);
+        const float w = 1400;
+        const float h = 920;
         const float x = (W - w) / 2;
         const float y = (1080 - h) / 2;
-        const float pad = S(28);
-        const float gap = S(8);
+        const float pad = 32;
+        const float gap = 10;
         const float cw = (w - 2 * pad - 5 * gap) / 6;
-        const float ch = (h - S(240) - 6 * gap) / 7;
-        const float top = y + S(140);
+        const float ch = 72;
+        const float top = y + 210;
 
         r.rounded_rect(x, y, w, h, theme::radius_box(), theme::BASE_200);
         r.text(fonts_.section, i18n::tr(i18n::Text::ADDONS_SEARCH),
-                x + pad, y + S(50), theme::BASE_CONTENT);
-        r.rounded_rect(x + pad, y + S(72), w - 2 * pad, S(48),
+                x + pad, y + 64, theme::BASE_CONTENT);
+        r.rounded_rect(x + pad - 2, y + 100, w - 2 * pad + 4, 78,
+                theme::radius_field(), theme::PRIMARY);
+        r.rounded_rect(x + pad, y + 102, w - 2 * pad, 74,
                 theme::radius_field(), theme::BASE_300);
 
         const std::string query = addon_query_.empty() ? "_" : addon_query_;
         r.text(fonts_.body,
                 fonts_.body.ellipsize(query, w - 2 * pad - S(24)),
-                x + pad + S(12), y + S(104), theme::BASE_CONTENT);
+                x + pad + 18, y + 139 + fonts_.body.size() * 0.36f, theme::BASE_CONTENT);
 
         const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
         for (int i = 0; i < 39; ++i) {
@@ -718,13 +759,21 @@ void AddonsScreen::draw_search(Renderer &r) {
                         x + pad + col * (cw + gap),
                         top + row * (ch + gap), kw, ch,
                         i == search_key_, i == search_key_ ? 1.0f : 0.0f,
-                        theme::BASE_200);
+                        i >= 36 ? theme::BASE_300 : theme::BASE_200);
         }
 
         r.text(fonts_.small,
                 fonts_.small.ellipsize(
-                        i18n::tr(i18n::Text::ADDONS_SEARCH_HELP), w - 2 * pad),
-                x + pad, y + h - S(34), theme::BASE_CONTENT_MUTED);
+                        i18n::tr(i18n::Text::ADDONS_SEARCH_CLEAR_NOTE),
+                        w - 2 * pad),
+                x + pad, y + h - 96, theme::BASE_CONTENT_MUTED);
+
+        ui::hints(r, fonts_.small,
+                {
+                        { "\xC3\x97", i18n::tr(i18n::Text::ADDONS_SEARCH_TYPE) },
+                        { "\xE2\x97\x8B", i18n::tr(i18n::Text::ADDONS_SEARCH_CLOSE) }
+                },
+                x + pad, y + h - 40);
 }
 
 void AddonsScreen::update(double dt, uint32_t pressed) {
@@ -760,11 +809,20 @@ void AddonsScreen::update(double dt, uint32_t pressed) {
                 return;
         }
 
-        if (filter_ == 1 && (pressed & platform::BUTTON_TRIANGLE)) {
+        if (filter_ == 2 && (pressed & platform::BUTTON_TRIANGLE)) {
                 searching_ = true;
                 on_bar_ = false;
                 on_filters_ = false;
                 return;
+        }
+
+        const bool previous_filter = (pressed & platform::BUTTON_L2) != 0;
+        const bool next_filter = (pressed & platform::BUTTON_R2) != 0;
+        if (previous_filter != next_filter) {
+                set_filter((filter_ + (next_filter ? 1 : 2)) % 3);
+                on_bar_ = false;
+                on_filters_ = true;
+                pressed = 0;
         }
 
         if (bar_.handle_shoulders(pressed, fonts_, navigator_)) return;
@@ -887,7 +945,7 @@ void AddonsScreen::draw(Renderer &r) {
                 if (!loading && !failed) {
                         r.text(fonts_.body, i18n::tr(filter_ == 0
                                 ? i18n::Text::ADDONS_EMPTY
-                                : filter_ == 1 && !addon_query_.empty()
+                                : filter_ == 2 && !addon_query_.empty()
                                         ? i18n::Text::ADDONS_SEARCH_EMPTY
                                         : i18n::Text::ADDONS_CATALOG_EMPTY),
                                 MARGIN, list_y() + S(40), theme::BASE_CONTENT_MUTED);
@@ -937,9 +995,19 @@ void AddonsScreen::draw(Renderer &r) {
                 }
         }
 
-        r.text(fonts_.small,
-                fonts_.small.ellipsize(i18n::tr(i18n::Text::ADDONS_MANAGE_HINT), W - 2 * MARGIN),
-                MARGIN, tabs::content_bottom() - S(24), theme::BASE_CONTENT_MUTED);
+        std::vector<ui::Hint> hints = {
+                { "\xC3\x97", i18n::tr(i18n::Text::ADDONS_HINT_ACTION) },
+                { "\xE2\x96\xA1", i18n::tr(i18n::Text::ADDONS_HINT_RELOAD) },
+                { "\xE2\x9C\x9A", i18n::tr(i18n::Text::ADDONS_HINT_NAVIGATION) }
+        };
+        if (filter_ == 2) {
+                hints.push_back({
+                        "\xE2\x96\xB3",
+                        i18n::tr(i18n::Text::ADDONS_SEARCH)
+                });
+        }
+        ui::hints(r, fonts_.small, hints,
+                MARGIN, tabs::content_bottom() - S(24));
         bar_.draw(r, fonts_);
         toast_.draw(r, fonts_.body, W / 2, tabs::box_y() - S(88));
         if (confirming_) draw_confirmation(r);

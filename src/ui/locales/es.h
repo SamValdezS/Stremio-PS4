@@ -238,6 +238,9 @@ inline const char *es(Text key) {
         case Text::ADDONS_INSTALL_OK: return "Instalación guardada. Actualizando los complementos instalados…";
         case Text::ADDONS_REMOVE_OK: return "Desinstalación guardada. Actualizando los complementos instalados…";
         case Text::ADDONS_MANAGE_HINT: return "Cruz: acción. Arriba: filtros. Cuadrado: recargar catálogo. Círculo: navegación.";
+        case Text::ADDONS_HINT_ACTION: return "Acción";
+        case Text::ADDONS_HINT_RELOAD: return "Recargar catálogo";
+        case Text::ADDONS_HINT_NAVIGATION: return "Navegación";
         case Text::ADDONS_SEARCH: return "Buscar complementos";
         case Text::ADDONS_SEARCH_HELP: return "Cruz: escribir. Círculo: cerrar y ver resultados. Limpiar: mostrar todos.";
         case Text::ADDONS_SEARCH_EMPTY: return "No hay coincidencias. Pulsa Triángulo para cambiar o limpiar la búsqueda.";
@@ -253,6 +256,14 @@ inline const char *es(Text key) {
         case Text::ADDONS_PHONE_SYNC_DONE: return "Colección recargada. Vuelve a Instalados para revisar tus complementos.";
         case Text::ADDONS_PHONE_UNSUPPORTED: return "Esta URL no permite construir el enlace estándar de configuración. Configúralo desde otro cliente de Stremio.";
         case Text::ADDONS_PHONE_QR_ERROR: return "No se pudo generar el QR de configuración.";
+        case Text::ADDONS_HINT_BACK: return "Volver";
+        case Text::ADDONS_SEARCH_TYPE: return "Escribir";
+        case Text::ADDONS_SEARCH_CLOSE: return "Cerrar y ver resultados";
+        case Text::ADDONS_SEARCH_CLEAR_NOTE: return "Selecciona «Limpiar» para mostrar todos los complementos.";
+        case Text::ADDONS_PHONE_STEP_SCAN: return "Escanea el QR con el teléfono para abrir la configuración del complemento.";
+        case Text::ADDONS_PHONE_STEP_INSTALL: return "Elige tus ajustes y termina de instalar en Stremio con la misma cuenta que usas en esta PS4.";
+        case Text::ADDONS_PHONE_STEP_SYNC: return "Cuando termines, pulsa «Sincronizar cuenta» aquí. Después revisa Instalados.";
+        case Text::ADDONS_PHONE_SCAN_NOTE: return "Escanear el QR no instala el complemento por sí solo.";
         default: return nullptr;
     }
 }

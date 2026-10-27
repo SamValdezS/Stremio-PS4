@@ -238,6 +238,9 @@ inline const char *en(Text key) {
         case Text::ADDONS_INSTALL_OK: return "Installation saved. Refreshing installed add-ons…";
         case Text::ADDONS_REMOVE_OK: return "Uninstall saved. Refreshing installed add-ons…";
         case Text::ADDONS_MANAGE_HINT: return "Cross: action. Up: filters. Square: reload catalog. Circle: navigation.";
+        case Text::ADDONS_HINT_ACTION: return "Action";
+        case Text::ADDONS_HINT_RELOAD: return "Reload catalog";
+        case Text::ADDONS_HINT_NAVIGATION: return "Navigation";
         case Text::ADDONS_SEARCH: return "Search add-ons";
         case Text::ADDONS_SEARCH_HELP: return "Cross: type. Circle: close and view results. Clear: show all.";
         case Text::ADDONS_SEARCH_EMPTY: return "No add-ons match your search. Press Triangle to edit or clear it.";
@@ -253,6 +256,14 @@ inline const char *en(Text key) {
         case Text::ADDONS_PHONE_SYNC_DONE: return "Collection reloaded. Return to Installed to check your add-ons.";
         case Text::ADDONS_PHONE_UNSUPPORTED: return "This add-on URL does not support the standard configuration link. Configure it from another Stremio client.";
         case Text::ADDONS_PHONE_QR_ERROR: return "Could not generate the configuration QR code.";
+        case Text::ADDONS_HINT_BACK: return "Back";
+        case Text::ADDONS_SEARCH_TYPE: return "Type";
+        case Text::ADDONS_SEARCH_CLOSE: return "Close and view results";
+        case Text::ADDONS_SEARCH_CLEAR_NOTE: return "Select Clear to show all add-ons.";
+        case Text::ADDONS_PHONE_STEP_SCAN: return "Scan the QR code with your phone to open the add-on configuration.";
+        case Text::ADDONS_PHONE_STEP_INSTALL: return "Choose your settings and finish installing in Stremio using the same account as this PS4.";
+        case Text::ADDONS_PHONE_STEP_SYNC: return "When finished, select Sync account here. Then check Installed.";
+        case Text::ADDONS_PHONE_SCAN_NOTE: return "Scanning the QR code alone does not install the add-on.";
         case Text::COUNT: return nullptr;
     }
     return nullptr;
