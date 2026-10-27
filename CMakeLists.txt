@@ -51,6 +51,7 @@ add_executable(stremio_ps4
     src/net/byte_source.cpp
     src/net/urls.cpp
     ${TORRENT_SOURCES}
+    src/ui/addons_screen.cpp
     src/ui/home_screen.cpp
     src/ui/discover_screen.cpp
     src/ui/card.cpp

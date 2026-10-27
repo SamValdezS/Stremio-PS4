@@ -83,7 +83,8 @@ public:
 	void discover_open();
 	void discover_select(const std::string &type, int catalog, const std::string &filter);
 	void discover_load_more();
-	bool addons_loaded() const { return addons_loaded_; }
+        const std::vector<Addon> &addons() const { return addons_; }
+        bool addons_loaded() const { return addons_loaded_; }
 
 	bool library_loaded() const { return library_loaded_; }
 	const std::string &library_error() const { return library_error_; }

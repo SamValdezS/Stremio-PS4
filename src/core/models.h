@@ -99,6 +99,7 @@ struct Catalog {
 // stremio-core Descriptor + the parts of Manifest we use.
 struct Addon {
 	std::string transport_url, id, name;
+        std::string version, description;
 	std::vector<std::string> types;
 	bool has_id_prefixes = false;
 	std::vector<std::string> id_prefixes;

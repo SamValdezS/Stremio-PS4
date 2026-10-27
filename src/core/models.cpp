@@ -312,7 +312,9 @@ Addon Addon::from_json(const Json &d) {
 	a.transport_url = str(d["transportUrl"]);
 	const Json &m = d["manifest"];
 	a.id = str(m["id"]);
-	a.name = m.has("name") ? str(m["name"]) : a.id;
+    a.name = m.has("name") ? str(m["name"]) : a.id;
+    a.version = str(m["version"]);
+    a.description = str(m["description"]);
 	a.types = strings(m["types"]);
 	a.has_id_prefixes = m["idPrefixes"].is_array();
 	a.id_prefixes = strings(m["idPrefixes"]);

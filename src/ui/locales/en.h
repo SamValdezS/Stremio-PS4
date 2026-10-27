@@ -198,6 +198,17 @@ inline const char *en(Text key) {
         case Text::TRACK_LANG_ARMENIAN: return "Armenian";
         case Text::TRACK_LANG_GEORGIAN: return "Georgian";
         case Text::TRACK_LANG_UNKNOWN: return "Unknown";
+        case Text::ADDONS_INSTALLED_PREFIX: return "Installed: ";
+        case Text::ADDONS_EMPTY: return "No add-ons are loaded.";
+        case Text::ADDONS_VERSION_PREFIX: return "Version: ";
+        case Text::ADDONS_NO_DESCRIPTION: return "No description available.";
+        case Text::ADDONS_FUNCTIONS: return "Functions";
+        case Text::ADDONS_NO_FUNCTIONS: return "No known functions declared.";
+        case Text::ADDONS_RESOURCE_CATALOG: return "Catalogs";
+        case Text::ADDONS_RESOURCE_META: return "Details";
+        case Text::ADDONS_RESOURCE_STREAM: return "Streams";
+        case Text::ADDONS_RESOURCE_SUBTITLES: return "Subtitles";
+        case Text::ADDONS_READ_ONLY: return "View only. Manage add-ons in your other Stremio client.";
         case Text::COUNT: return nullptr;
     }
     return nullptr;

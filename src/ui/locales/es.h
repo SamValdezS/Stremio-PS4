@@ -198,6 +198,17 @@ inline const char *es(Text key) {
         case Text::TRACK_LANG_ARMENIAN: return "Armenio";
         case Text::TRACK_LANG_GEORGIAN: return "Georgiano";
         case Text::TRACK_LANG_UNKNOWN: return "Desconocido";
+        case Text::ADDONS_INSTALLED_PREFIX: return "Instalados: ";
+        case Text::ADDONS_EMPTY: return "No hay complementos cargados.";
+        case Text::ADDONS_VERSION_PREFIX: return "Versión: ";
+        case Text::ADDONS_NO_DESCRIPTION: return "Sin descripción disponible.";
+        case Text::ADDONS_FUNCTIONS: return "Funciones";
+        case Text::ADDONS_NO_FUNCTIONS: return "Sin funciones conocidas declaradas.";
+        case Text::ADDONS_RESOURCE_CATALOG: return "Catálogos";
+        case Text::ADDONS_RESOURCE_META: return "Información";
+        case Text::ADDONS_RESOURCE_STREAM: return "Fuentes";
+        case Text::ADDONS_RESOURCE_SUBTITLES: return "Subtítulos";
+        case Text::ADDONS_READ_ONLY: return "Solo consulta. Administra los complementos desde tu otro cliente de Stremio.";
         default: return nullptr;
     }
 }
