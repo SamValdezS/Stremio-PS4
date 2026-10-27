@@ -718,3 +718,87 @@ TEST(stremio_review_http_error_preserves_revoked_session_message) {
     CHECK(!s.account_sync_busy());
     CHECK(!fake::files.count("/fake/session.json"));
 }
+
+// --- Community add-on search matching ---
+#include "../src/core/addon_search.h"
+
+TEST(stremio_addon_search_name_and_identifier) {
+    CHECK(addon_search::matches("My Streams", "org.example.addon", "streams"));
+    CHECK(addon_search::matches("My Streams", "org.example.addon", "EXAMPLE"));
+    CHECK(!addon_search::matches("My Streams", "org.example.addon", "subtitles"));
+    CHECK(addon_search::matches("My Streams", "org.example.addon", ""));
+}
+
+TEST(stremio_addon_search_spanish_accents) {
+    CHECK(addon_search::matches("Pel\xC3\xAD""culas", "films", "peliculas"));
+    CHECK(addon_search::matches("ESPA\xC3\x91""OL", "language", "espanol"));
+    CHECK(addon_search::matches("M\xC3\x9C""SICA", "audio", "musica"));
+}
+
+TEST(stremio_addon_search_keeps_original_text) {
+    const std::string name = "Community Add-on";
+    const std::string id = "org.Example";
+    CHECK(addon_search::matches(name, id, "COMMUNITY"));
+    CHECK_EQ(name, "Community Add-on");
+    CHECK_EQ(id, "org.Example");
+}
+
+// --- Local QR support for phone-based add-on configuration ---
+#include "../src/core/addon_config.h"
+
+TEST(stremio_addon_config_standard_routes) {
+    CHECK_EQ(
+        addon_config::configure_url("https://addon.example/manifest.json"),
+        "https://addon.example/configure");
+    CHECK_EQ(
+        addon_config::configure_url("https://addon.example/service/manifest.json"),
+        "https://addon.example/service/configure");
+    CHECK_EQ(
+        addon_config::configure_url("http://addon.example/manifest.json"),
+        "http://addon.example/configure");
+}
+
+TEST(stremio_addon_config_rejects_ambiguous_routes) {
+    CHECK(addon_config::configure_url("stremio://addon.example/manifest.json").empty());
+    CHECK(addon_config::configure_url("https:///manifest.json").empty());
+    CHECK(addon_config::configure_url("https://addon.example/manifest.json?key=secret").empty());
+    CHECK(addon_config::configure_url("https://addon.example/manifest.json#fragment").empty());
+    CHECK(addon_config::configure_url("https://user:secret@addon.example/manifest.json").empty());
+    CHECK(addon_config::configure_url("https://addon.example/other.json").empty());
+    CHECK(addon_config::configure_url("https://addon.example/a b/manifest.json").empty());
+}
+
+TEST(stremio_addon_config_qr_is_generated_locally) {
+    const auto code = addon_config::make_qr("https://addon.example/configure");
+    const int size = addon_config::qr_size(code);
+    CHECK(size >= 21 && size <= 177);
+    CHECK(size % 4 == 1);
+    CHECK(addon_config::qr_dark(code, 0, 0));
+    CHECK(addon_config::qr_dark(code, 6, 0));
+    CHECK(addon_config::qr_dark(code, 0, 6));
+    CHECK(!addon_config::qr_dark(code, 1, 1));
+    CHECK(!addon_config::qr_dark(code, -1, 0));
+    CHECK(!addon_config::qr_dark(code, size, 0));
+    CHECK(addon_config::make_qr("").empty());
+    CHECK(addon_config::make_qr(std::string("a\0b", 3)).empty());
+    CHECK(addon_config::make_qr(std::string(10000, 'x')).empty());
+}
+
+TEST(stremio_addon_config_rejects_invalid_qr_buffers) {
+    auto code = addon_config::make_qr("https://addon.example/configure");
+    CHECK(!code.empty());
+    if (code.empty()) return;
+
+    code[0] = 0;
+    CHECK_EQ(addon_config::qr_size(code), 0);
+    CHECK(!addon_config::qr_dark(code, 0, 0));
+
+    code[0] = 22;
+    CHECK_EQ(addon_config::qr_size(code), 0);
+
+    code[0] = 255;
+    CHECK_EQ(addon_config::qr_size(code), 0);
+
+    code.clear();
+    CHECK_EQ(addon_config::qr_size(code), 0);
+}

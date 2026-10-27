@@ -1,6 +1,8 @@
 #include "addons_screen.h"
 
 #include "../core/stremio.h"
+#include "../core/addon_search.h"
+#include "../core/addon_config.h"
 #include "../net/images.h"
 #include "../net/http.h"
 #include "../platform/platform.h"
@@ -100,7 +102,21 @@ std::string addon_server(const std::string &url) {
 } // namespace
 
 const std::vector<Addon> &AddonsScreen::current_addons() const {
-        return filter_ == 0 ? stremio().addons() : catalogs_[filter_ - 1]->items;
+        if (filter_ == 0) return stremio().addons();
+        const auto &state = *catalogs_[filter_ - 1];
+        if (filter_ != 1 || addon_query_.empty()) return state.items;
+        if (filtered_revision_ != state.revision
+                || filtered_query_ != addon_query_) {
+                filtered_addons_.clear();
+                for (const Addon &addon : state.items) {
+                        if (addon_search::matches(addon.name, addon.id, addon_query_)) {
+                                filtered_addons_.push_back(addon);
+                        }
+                }
+                filtered_revision_ = state.revision;
+                filtered_query_ = addon_query_;
+        }
+        return filtered_addons_;
 }
 
 void AddonsScreen::set_filter(int filter) {
@@ -157,6 +173,7 @@ void AddonsScreen::load_catalog(bool force) {
                         if (!duplicate) items.push_back(std::move(addon));
                 }
                 state->items.swap(items);
+                ++state->revision;
         }, [](http::Response &response) {
                 if (!response.ok()) return;
                 std::string error;
@@ -191,6 +208,20 @@ void AddonsScreen::draw_filters(Renderer &r) {
                         on_filters_ && i == filter_ ? 1.0f : 0.0f,
                         theme::BASE_200);
                 x += widths[i];
+        }
+        if (filter_ == 1) {
+                const float hint_x = x + S(26);
+                const float available = W - MARGIN - hint_x;
+                if (available > S(40)) {
+                        std::string label = std::string("\xE2\x96\xB3 ")
+                                + i18n::tr(i18n::Text::ADDONS_SEARCH);
+                        if (!addon_query_.empty()) label += ": " + addon_query_;
+                        r.text(fonts_.small,
+                                fonts_.small.ellipsize(label, available),
+                                hint_x, y + pad + height / 2
+                                        + fonts_.small.size() * 0.36f,
+                                theme::BASE_CONTENT_MUTED);
+                }
         }
 }
 
@@ -237,10 +268,6 @@ void AddonsScreen::activate_addon() {
                         toast_.show(i18n::tr(Text::ADDONS_ALREADY_INSTALLED));
                         return;
                 }
-                if (addon.configuration_required) {
-                        toast_.show(i18n::tr(Text::ADDONS_CONFIG_REQUIRED), true);
-                        return;
-                }
         }
 
         // Freeze the exact target before displaying the confirmation.
@@ -248,7 +275,10 @@ void AddonsScreen::activate_addon() {
         confirm_auth_rev_ = s.auth_rev;
         confirm_install_ = filter_ != 0;
         confirm_ok_ = false;
-        confirming_ = true;
+        config_option_ = 0;
+        config_options_open_ = confirm_install_
+                && (addon.configurable || addon.configuration_required);
+        confirming_ = !config_options_open_;
 }
 
 void AddonsScreen::execute_change() {
@@ -295,7 +325,10 @@ void AddonsScreen::execute_change() {
                                 message = Text::ADDONS_PROTECTED;
                                 break;
                         case Result::NEEDS_CONFIGURATION:
-                                message = Text::ADDONS_CONFIG_REQUIRED;
+                                message = Text::ADDONS_SETUP_REQUIRED;
+                                confirmed_addon_.configuration_required = true;
+                                config_option_ = 0;
+                                config_options_open_ = true;
                                 break;
                         case Result::INVALID_MANIFEST:
                                 message = Text::ADDONS_INVALID_MANIFEST;
@@ -397,8 +430,315 @@ void AddonsScreen::draw_confirmation(Renderer &r) {
                 theme::BASE_200);
 }
 
+void AddonsScreen::open_phone_config() {
+        const std::string url =
+                addon_config::configure_url(confirmed_addon_.transport_url);
+        if (url.empty()) {
+                toast_.show(i18n::tr(i18n::Text::ADDONS_PHONE_UNSUPPORTED), true);
+                return;
+        }
+
+        auto code = addon_config::make_qr(url);
+        if (code.empty()) {
+                toast_.show(i18n::tr(i18n::Text::ADDONS_PHONE_QR_ERROR), true);
+                return;
+        }
+
+        phone_qr_.swap(code);
+        config_options_open_ = false;
+        phone_config_open_ = true;
+        phone_sync_pending_ = false;
+}
+
+void AddonsScreen::update_config(uint32_t pressed) {
+        using i18n::Text;
+        Stremio &s = stremio();
+
+        if (confirm_auth_rev_ != s.auth_rev) {
+                config_options_open_ = false;
+                phone_config_open_ = false;
+                phone_sync_pending_ = false;
+                phone_qr_.clear();
+                toast_.show(i18n::tr(Text::ADDONS_SESSION_CHANGED), true);
+                return;
+        }
+
+        if (pressed & platform::BUTTON_BACK) {
+                if (phone_config_open_) {
+                        phone_config_open_ = false;
+                        phone_sync_pending_ = false;
+                        phone_qr_.clear();
+                        config_options_open_ = true;
+                } else {
+                        config_options_open_ = false;
+                }
+                return;
+        }
+
+        if (phone_config_open_) {
+                if (phone_sync_pending_ && !s.account_sync_busy()) {
+                        phone_sync_pending_ = false;
+                        const bool failed = !s.addons_error().empty()
+                                || !s.addons_loaded();
+                        toast_.show(i18n::tr(failed
+                                ? Text::ADDONS_COLLECTION_UNAVAILABLE
+                                : Text::ADDONS_PHONE_SYNC_DONE), failed);
+                }
+
+                if (pressed & platform::BUTTON_ACCEPT) {
+                        if (!s.logged_in()) {
+                                toast_.show(i18n::tr(Text::ADDONS_SIGN_IN), true);
+                        } else if (s.account_sync_busy()
+                                || s.addon_change_busy() || operation_pending_) {
+                                toast_.show(i18n::tr(Text::ADDONS_PHONE_SYNCING));
+                        } else {
+                                s.refresh();
+                                phone_sync_pending_ = true;
+                                toast_.show(i18n::tr(Text::ADDONS_PHONE_SYNCING));
+                        }
+                }
+                return;
+        }
+
+        const bool required = confirmed_addon_.configuration_required;
+        const int count = required ? 2 : 3;
+        if (pressed & platform::BUTTON_UP) {
+                config_option_ = std::max(0, config_option_ - 1);
+        }
+        if (pressed & platform::BUTTON_DOWN) {
+                config_option_ = std::min(count - 1, config_option_ + 1);
+        }
+        if (!(pressed & platform::BUTTON_ACCEPT)) return;
+
+        if (config_option_ == 0) {
+                open_phone_config();
+        } else if (!required && config_option_ == 1) {
+                config_options_open_ = false;
+                confirm_ok_ = false;
+                confirming_ = true;
+        } else {
+                config_options_open_ = false;
+        }
+}
+
+void AddonsScreen::draw_config_options(Renderer &r) {
+        using i18n::Text;
+        r.rect(0, 0, W, 1080, theme::BASE_100.with_alpha(0.96f));
+        const float w = std::min(S(1100), 1680.0f);
+        const float h = std::min(S(500), 940.0f);
+        const float x = (W - w) / 2;
+        const float y = (1080 - h) / 2;
+        const float pad = S(30);
+        const float text_w = w - 2 * pad;
+
+        r.rounded_rect(x, y, w, h, theme::radius_box(), theme::BASE_200);
+        r.text(fonts_.section,
+                fonts_.section.ellipsize(
+                        i18n::tr(Text::ADDONS_SETUP_TITLE), text_w),
+                x + pad, y + S(52), theme::BASE_CONTENT);
+        r.text(fonts_.card_title,
+                fonts_.card_title.ellipsize(display_name(confirmed_addon_), text_w),
+                x + pad, y + S(98), theme::BASE_CONTENT);
+
+        const bool required = confirmed_addon_.configuration_required;
+        float baseline = y + S(148);
+        for (const auto &line : fonts_.body.wrap(i18n::tr(required
+                ? Text::ADDONS_SETUP_REQUIRED : Text::ADDONS_SETUP_OPTIONAL),
+                text_w, 3)) {
+                r.text(fonts_.body, line, x + pad, baseline,
+                        theme::BASE_CONTENT_MUTED);
+                baseline += S(28);
+        }
+
+        Text labels[3] = {
+                Text::ADDONS_SETUP_PHONE,
+                required ? Text::ADDONS_CANCEL : Text::ADDONS_SETUP_DEFAULT,
+                Text::ADDONS_CANCEL
+        };
+        const int count = required ? 2 : 3;
+        for (int i = 0; i < count; ++i) {
+                ui::chip(r, fonts_.body,
+                        fonts_.body.ellipsize(i18n::tr(labels[i]), text_w - S(24)),
+                        x + pad, y + S(250) + i * S(64),
+                        text_w, S(52), i == config_option_,
+                        i == config_option_ ? 1.0f : 0.0f, theme::BASE_200);
+        }
+}
+
+void AddonsScreen::draw_phone_config(Renderer &r) {
+        using i18n::Text;
+        r.rect(0, 0, W, 1080, theme::BASE_100);
+
+        r.text(fonts_.page_header,
+                fonts_.page_header.ellipsize(
+                        i18n::tr(Text::ADDONS_PHONE_TITLE), W - 2 * MARGIN),
+                MARGIN, S(96), theme::BASE_CONTENT);
+
+        const int size = addon_config::qr_size(phone_qr_);
+        const float panel = std::min(S(520), 600.0f);
+        const float px = W - MARGIN - panel;
+        const float py = (1080 - panel) / 2;
+        const float text_w = px - MARGIN - S(48);
+
+        r.rect(px, py, panel, panel, rgb(0xFFFFFF));
+        if (size > 0) {
+                // Integer-sized modules, with at least a four-module quiet zone.
+                const int module = std::max(1, (int)(panel / (size + 8)));
+                const float qx = (float)(int)(px + (panel - size * module) / 2);
+                const float qy = (float)(int)(py + (panel - size * module) / 2);
+                for (int row = 0; row < size; ++row) {
+                        int start = -1;
+                        for (int col = 0; col <= size; ++col) {
+                                const bool dark = col < size
+                                        && addon_config::qr_dark(phone_qr_, col, row);
+                                if (dark && start < 0) start = col;
+                                if (!dark && start >= 0) {
+                                        r.rect(qx + start * module,
+                                                qy + row * module,
+                                                (col - start) * module,
+                                                module, rgb(0x000000));
+                                        start = -1;
+                                }
+                        }
+                }
+        }
+
+        r.text(fonts_.section,
+                fonts_.section.ellipsize(display_name(confirmed_addon_), text_w),
+                MARGIN, py + S(30), theme::BASE_CONTENT);
+        r.text(fonts_.small,
+                fonts_.small.ellipsize(
+                        addon_server(confirmed_addon_.transport_url), text_w),
+                MARGIN, py + S(70), theme::BASE_CONTENT_MUTED);
+
+        const float sync_y = 1080 - S(170);
+        const float line_height = S(32);
+        float baseline = py + S(130);
+        const float last_baseline = sync_y - S(32);
+        const int instruction_lines = baseline <= last_baseline
+                ? std::max(1, (int)((last_baseline - baseline) / line_height) + 1)
+                : 0;
+        if (instruction_lines > 0) {
+                for (const auto &line : fonts_.body.wrap(
+                        i18n::tr(Text::ADDONS_PHONE_HELP),
+                        text_w, instruction_lines)) {
+                        r.text(fonts_.body, line, MARGIN, baseline,
+                                theme::BASE_CONTENT_MUTED);
+                        baseline += line_height;
+                }
+        }
+
+        const bool busy = phone_sync_pending_ || stremio().account_sync_busy();
+        ui::chip(r, fonts_.body,
+                fonts_.body.ellipsize(i18n::tr(busy
+                        ? Text::ADDONS_PHONE_SYNCING : Text::ADDONS_PHONE_SYNC),
+                        text_w - S(24)),
+                MARGIN, sync_y, text_w, S(56),
+                true, 1.0f, theme::BASE_100);
+
+        ui::hints(r, fonts_.small,
+                {
+                        { "\xC3\x97", i18n::tr(Text::ADDONS_PHONE_SYNC) },
+                        { "\xE2\x97\x8B", i18n::tr(Text::ADDONS_CANCEL) }
+                },
+                MARGIN, 1080 - S(70));
+
+        toast_.draw(r, fonts_.body, W / 2, S(135));
+}
+
+void AddonsScreen::update_search(uint32_t pressed) {
+        if (pressed & platform::BUTTON_BACK) {
+                searching_ = false;
+                return;
+        }
+
+        int row = search_key_ < 36 ? search_key_ / 6 : 6;
+        int col = search_key_ < 36 ? search_key_ % 6 : (search_key_ - 36) * 2;
+        const int span = row == 6 ? 2 : 1;
+        if (pressed & platform::BUTTON_LEFT) col = std::max(0, col - 1);
+        if (pressed & platform::BUTTON_RIGHT) col = std::min(5, col + span);
+        if (pressed & platform::BUTTON_UP) row = std::max(0, row - 1);
+        if (pressed & platform::BUTTON_DOWN) row = std::min(6, row + 1);
+        search_key_ = row < 6 ? row * 6 + col : 36 + col / 2;
+
+        if (!(pressed & platform::BUTTON_ACCEPT)) return;
+        const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        const std::string before = addon_query_;
+        if (search_key_ < 36) {
+                if (addon_query_.size() < 60) addon_query_ += chars[search_key_];
+        } else if (search_key_ == 36) {
+                if (addon_query_.size() < 60) addon_query_ += ' ';
+        } else if (search_key_ == 37) {
+                if (!addon_query_.empty()) addon_query_.pop_back();
+        } else {
+                addon_query_.clear();
+        }
+
+        if (addon_query_ != before) {
+                selected_ = 0;
+                scroll_ = 0;
+                focus_.clear();
+        }
+}
+
+void AddonsScreen::draw_search(Renderer &r) {
+        r.rect(0, 0, W, 1080, theme::BASE_100.with_alpha(0.96f));
+        const float w = std::min(S(1000), 1600.0f);
+        const float h = std::min(S(670), 900.0f);
+        const float x = (W - w) / 2;
+        const float y = (1080 - h) / 2;
+        const float pad = S(28);
+        const float gap = S(8);
+        const float cw = (w - 2 * pad - 5 * gap) / 6;
+        const float ch = (h - S(240) - 6 * gap) / 7;
+        const float top = y + S(140);
+
+        r.rounded_rect(x, y, w, h, theme::radius_box(), theme::BASE_200);
+        r.text(fonts_.section, i18n::tr(i18n::Text::ADDONS_SEARCH),
+                x + pad, y + S(50), theme::BASE_CONTENT);
+        r.rounded_rect(x + pad, y + S(72), w - 2 * pad, S(48),
+                theme::radius_field(), theme::BASE_300);
+
+        const std::string query = addon_query_.empty() ? "_" : addon_query_;
+        r.text(fonts_.body,
+                fonts_.body.ellipsize(query, w - 2 * pad - S(24)),
+                x + pad + S(12), y + S(104), theme::BASE_CONTENT);
+
+        const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+        for (int i = 0; i < 39; ++i) {
+                const int row = i < 36 ? i / 6 : 6;
+                const int col = i < 36 ? i % 6 : (i - 36) * 2;
+                const int span = i < 36 ? 1 : 2;
+                const float kw = span * cw + (span - 1) * gap;
+                std::string label;
+                if (i < 36) label = std::string(1, chars[i]);
+                else label = i18n::label(
+                        i == 36 ? "Space" : i == 37 ? "Delete" : "Clear");
+                ui::chip(r, fonts_.body, fonts_.body.ellipsize(label, kw - S(12)),
+                        x + pad + col * (cw + gap),
+                        top + row * (ch + gap), kw, ch,
+                        i == search_key_, i == search_key_ ? 1.0f : 0.0f,
+                        theme::BASE_200);
+        }
+
+        r.text(fonts_.small,
+                fonts_.small.ellipsize(
+                        i18n::tr(i18n::Text::ADDONS_SEARCH_HELP), w - 2 * pad),
+                x + pad, y + h - S(34), theme::BASE_CONTENT_MUTED);
+}
+
 void AddonsScreen::update(double dt, uint32_t pressed) {
         toast_.update(dt);
+
+        if (config_options_open_ || phone_config_open_) {
+                update_config(pressed);
+                return;
+        }
+
+        if (searching_) {
+                update_search(pressed);
+                return;
+        }
 
         if (confirming_) {
                 if (confirm_auth_rev_ != stremio().auth_rev) {
@@ -417,6 +757,13 @@ void AddonsScreen::update(double dt, uint32_t pressed) {
                         confirming_ = false;
                         if (approved) execute_change();
                 }
+                return;
+        }
+
+        if (filter_ == 1 && (pressed & platform::BUTTON_TRIANGLE)) {
+                searching_ = true;
+                on_bar_ = false;
+                on_filters_ = false;
                 return;
         }
 
@@ -540,7 +887,9 @@ void AddonsScreen::draw(Renderer &r) {
                 if (!loading && !failed) {
                         r.text(fonts_.body, i18n::tr(filter_ == 0
                                 ? i18n::Text::ADDONS_EMPTY
-                                : i18n::Text::ADDONS_CATALOG_EMPTY),
+                                : filter_ == 1 && !addon_query_.empty()
+                                        ? i18n::Text::ADDONS_SEARCH_EMPTY
+                                        : i18n::Text::ADDONS_CATALOG_EMPTY),
                                 MARGIN, list_y() + S(40), theme::BASE_CONTENT_MUTED);
                 }
         } else {
@@ -594,4 +943,10 @@ void AddonsScreen::draw(Renderer &r) {
         bar_.draw(r, fonts_);
         toast_.draw(r, fonts_.body, W / 2, tabs::box_y() - S(88));
         if (confirming_) draw_confirmation(r);
+        if (searching_) draw_search(r);
+        if (config_options_open_) {
+                draw_config_options(r);
+                toast_.draw(r, fonts_.body, W / 2, S(100));
+        }
+        if (phone_config_open_) draw_phone_config(r);
 }

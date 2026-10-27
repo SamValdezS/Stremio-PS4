@@ -238,6 +238,21 @@ inline const char *en(Text key) {
         case Text::ADDONS_INSTALL_OK: return "Installation saved. Refreshing installed add-ons…";
         case Text::ADDONS_REMOVE_OK: return "Uninstall saved. Refreshing installed add-ons…";
         case Text::ADDONS_MANAGE_HINT: return "Cross: action. Up: filters. Square: reload catalog. Circle: navigation.";
+        case Text::ADDONS_SEARCH: return "Search add-ons";
+        case Text::ADDONS_SEARCH_HELP: return "Cross: type. Circle: close and view results. Clear: show all.";
+        case Text::ADDONS_SEARCH_EMPTY: return "No add-ons match your search. Press Triangle to edit or clear it.";
+        case Text::ADDONS_SETUP_TITLE: return "Choose how to install";
+        case Text::ADDONS_SETUP_OPTIONAL: return "This add-on allows customization. Install without personalizing it, or configure it on your phone.";
+        case Text::ADDONS_SETUP_REQUIRED: return "This add-on requires configuration before installation. Complete it on your phone using the same Stremio account.";
+        case Text::ADDONS_SETUP_PHONE: return "Configure with phone";
+        case Text::ADDONS_SETUP_DEFAULT: return "Install without customizing";
+        case Text::ADDONS_PHONE_TITLE: return "Configure with your phone";
+        case Text::ADDONS_PHONE_HELP: return "Scan the QR code to open the add-on website. Choose your settings, then finish installing it in Stremio using the same account as this PS4. When finished, press Cross here to reload your account collection. Scanning alone does not install the add-on.";
+        case Text::ADDONS_PHONE_SYNC: return "Sync account";
+        case Text::ADDONS_PHONE_SYNCING: return "Reloading account collection…";
+        case Text::ADDONS_PHONE_SYNC_DONE: return "Collection reloaded. Return to Installed to check your add-ons.";
+        case Text::ADDONS_PHONE_UNSUPPORTED: return "This add-on URL does not support the standard configuration link. Configure it from another Stremio client.";
+        case Text::ADDONS_PHONE_QR_ERROR: return "Could not generate the configuration QR code.";
         case Text::COUNT: return nullptr;
     }
     return nullptr;

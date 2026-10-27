@@ -238,6 +238,21 @@ inline const char *es(Text key) {
         case Text::ADDONS_INSTALL_OK: return "Instalación guardada. Actualizando los complementos instalados…";
         case Text::ADDONS_REMOVE_OK: return "Desinstalación guardada. Actualizando los complementos instalados…";
         case Text::ADDONS_MANAGE_HINT: return "Cruz: acción. Arriba: filtros. Cuadrado: recargar catálogo. Círculo: navegación.";
+        case Text::ADDONS_SEARCH: return "Buscar complementos";
+        case Text::ADDONS_SEARCH_HELP: return "Cruz: escribir. Círculo: cerrar y ver resultados. Limpiar: mostrar todos.";
+        case Text::ADDONS_SEARCH_EMPTY: return "No hay coincidencias. Pulsa Triángulo para cambiar o limpiar la búsqueda.";
+        case Text::ADDONS_SETUP_TITLE: return "Elige cómo instalar";
+        case Text::ADDONS_SETUP_OPTIONAL: return "Este complemento permite ajustes. Puedes instalarlo sin personalizar o configurarlo desde el teléfono.";
+        case Text::ADDONS_SETUP_REQUIRED: return "Este complemento necesita configuración antes de instalarse. Complétala desde el teléfono con la misma cuenta de Stremio.";
+        case Text::ADDONS_SETUP_PHONE: return "Configurar con el teléfono";
+        case Text::ADDONS_SETUP_DEFAULT: return "Instalar sin personalizar";
+        case Text::ADDONS_PHONE_TITLE: return "Configurar con el teléfono";
+        case Text::ADDONS_PHONE_HELP: return "Escanea el QR para abrir la web del complemento. Elige tus ajustes y termina de instalarlo en Stremio con la misma cuenta que usas en esta PS4. Después pulsa Cruz aquí para recargar la colección de tu cuenta. Escanear el QR no instala el complemento.";
+        case Text::ADDONS_PHONE_SYNC: return "Sincronizar cuenta";
+        case Text::ADDONS_PHONE_SYNCING: return "Recargando la colección de la cuenta…";
+        case Text::ADDONS_PHONE_SYNC_DONE: return "Colección recargada. Vuelve a Instalados para revisar tus complementos.";
+        case Text::ADDONS_PHONE_UNSUPPORTED: return "Esta URL no permite construir el enlace estándar de configuración. Configúralo desde otro cliente de Stremio.";
+        case Text::ADDONS_PHONE_QR_ERROR: return "No se pudo generar el QR de configuración.";
         default: return nullptr;
     }
 }

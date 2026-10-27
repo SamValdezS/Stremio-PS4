@@ -10,7 +10,7 @@
 # (STREMIO_PS4_SCRIPT) and an fps overlay.
 cmake_minimum_required(VERSION 3.17)
 file(STRINGS VERSION APP_VERSION LIMIT_COUNT 1)
-project(stremio_ps4 VERSION ${APP_VERSION} LANGUAGES CXX)
+project(stremio_ps4 VERSION ${APP_VERSION} LANGUAGES C CXX)
 option(STREMIO_DEV "Developer tools (demo session, scripted runs)" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -41,6 +41,8 @@ add_executable(stremio_ps4
     src/render/bidi.cpp
     src/core/charset.cpp
     src/core/json.cpp
+    src/core/addon_config.cpp
+    third_party/qrcodegen/qrcodegen.c
     src/core/models.cpp
     src/core/stremio.cpp
     src/core/subtitles.cpp
@@ -116,6 +118,8 @@ if(STREMIO_TESTS)
         src/torrent/magnet.cpp
         src/torrent/sha1.cpp
         src/core/json.cpp
+        src/core/addon_config.cpp
+        third_party/qrcodegen/qrcodegen.c
         src/core/models.cpp
         src/core/stremio.cpp
         src/core/subtitles.cpp
