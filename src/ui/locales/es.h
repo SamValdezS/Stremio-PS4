@@ -209,6 +209,35 @@ inline const char *es(Text key) {
         case Text::ADDONS_RESOURCE_STREAM: return "Fuentes";
         case Text::ADDONS_RESOURCE_SUBTITLES: return "Subtítulos";
         case Text::ADDONS_READ_ONLY: return "Solo consulta. Administra los complementos desde tu otro cliente de Stremio.";
+        case Text::ADDONS_FILTER_INSTALLED: return "Instalados";
+        case Text::ADDONS_FILTER_COMMUNITY: return "Comunidad";
+        case Text::ADDONS_FILTER_OFFICIAL: return "Oficiales";
+        case Text::ADDONS_AVAILABLE_PREFIX: return "Disponibles: ";
+        case Text::ADDONS_CATALOG_ERROR: return "No se pudo cargar el catálogo. Pulsa Cuadrado para reintentar.";
+        case Text::ADDONS_CATALOG_EMPTY: return "No hay complementos disponibles en este catálogo.";
+        case Text::ADDONS_BROWSE_HINT: return "Solo consulta. Arriba: filtros. Cuadrado: recargar catálogo. Círculo: navegación.";
+        case Text::ADDONS_INSTALL: return "Instalar";
+        case Text::ADDONS_UNINSTALL: return "Desinstalar";
+        case Text::ADDONS_CANCEL: return "Cancelar";
+        case Text::ADDONS_CONFIRM_INSTALL: return "¿Instalar este complemento?";
+        case Text::ADDONS_CONFIRM_REMOVE: return "¿Desinstalar este complemento?";
+        case Text::ADDONS_ACCOUNT_WARNING: return "Esta acción cambia los complementos guardados en tu cuenta de Stremio, también en otros dispositivos.";
+        case Text::ADDONS_WORKING: return "Procesando cambio en la cuenta…";
+        case Text::ADDONS_ALREADY_INSTALLED: return "Ya instalado";
+        case Text::ADDONS_NOT_INSTALLED: return "Este complemento ya no está en la colección de tu cuenta.";
+        case Text::ADDONS_PROTECTED_SHORT: return "Complemento protegido";
+        case Text::ADDONS_PROTECTED: return "Este complemento está protegido y no se puede desinstalar.";
+        case Text::ADDONS_CONFIG_SHORT: return "Requiere configuración";
+        case Text::ADDONS_CONFIG_REQUIRED: return "Configura primero este complemento en otro cliente de Stremio. La configuración desde PS4 aún no está disponible.";
+        case Text::ADDONS_INVALID_MANIFEST: return "El manifiesto no es válido o no corresponde al complemento seleccionado.";
+        case Text::ADDONS_NETWORK_ERROR: return "No se pudo consultar el complemento o la colección de la cuenta.";
+        case Text::ADDONS_SAVE_ERROR: return "No se pudo confirmar el cambio en la cuenta. Revisa los instalados antes de reintentar.";
+        case Text::ADDONS_SIGN_IN: return "Inicia sesión para administrar complementos.";
+        case Text::ADDONS_SESSION_CHANGED: return "La sesión de la cuenta cambió. Revisa la lista de instalados.";
+        case Text::ADDONS_COLLECTION_UNAVAILABLE: return "Espera a que la colección de la cuenta cargue sin errores.";
+        case Text::ADDONS_INSTALL_OK: return "Instalación guardada. Actualizando los complementos instalados…";
+        case Text::ADDONS_REMOVE_OK: return "Desinstalación guardada. Actualizando los complementos instalados…";
+        case Text::ADDONS_MANAGE_HINT: return "Cruz: acción. Arriba: filtros. Cuadrado: recargar catálogo. Círculo: navegación.";
         default: return nullptr;
     }
 }
