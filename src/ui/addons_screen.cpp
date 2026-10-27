@@ -687,29 +687,56 @@ void AddonsScreen::draw_phone_config(Renderer &r) {
 
 void AddonsScreen::update_search(uint32_t pressed) {
         if (pressed & platform::BUTTON_BACK) {
+                addon_query_.clear();
+                selected_ = 0;
+                scroll_ = 0;
+                focus_.clear();
+                search_key_ = 0;
                 searching_ = false;
                 return;
         }
 
-        int row = search_key_ < 36 ? search_key_ / 6 : 6;
-        int col = search_key_ < 36 ? search_key_ % 6 : (search_key_ - 36) * 2;
-        const int span = row == 6 ? 2 : 1;
-        if (pressed & platform::BUTTON_LEFT) col = std::max(0, col - 1);
-        if (pressed & platform::BUTTON_RIGHT) col = std::min(5, col + span);
-        if (pressed & platform::BUTTON_UP) row = std::max(0, row - 1);
-        if (pressed & platform::BUTTON_DOWN) row = std::min(6, row + 1);
-        search_key_ = row < 6 ? row * 6 + col : 36 + col / 2;
+        if (pressed & platform::BUTTON_R2) {
+                searching_ = false;
+                return;
+        }
 
+        search_key_ = std::clamp(search_key_, 0, 39);
+        int row = search_key_ < 36 ? search_key_ / 6 : 6;
+        int col = search_key_ < 36 ? search_key_ % 6 : search_key_ - 36;
+
+        const int columns = row == 6 ? 4 : 6;
+        if (pressed & platform::BUTTON_LEFT)
+                col = std::max(0, col - 1);
+        if (pressed & platform::BUTTON_RIGHT)
+                col = std::min(columns - 1, col + 1);
+
+        if ((pressed & platform::BUTTON_UP) && row > 0) {
+                if (row == 6) col = std::min(5, (2 * col + 1) * 6 / 8);
+                --row;
+        } else if ((pressed & platform::BUTTON_DOWN) && row < 6) {
+                if (row == 5) col = std::min(3, col * 4 / 6);
+                ++row;
+        }
+
+        search_key_ = row < 6 ? row * 6 + col : 36 + col;
         if (!(pressed & platform::BUTTON_ACCEPT)) return;
+
+        if (search_key_ == 39) {
+                searching_ = false;
+                return;
+        }
+
         const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
         const std::string before = addon_query_;
         if (search_key_ < 36) {
-                if (addon_query_.size() < 60) addon_query_ += chars[search_key_];
+                if (addon_query_.size() < 60)
+                        addon_query_ += chars[search_key_];
         } else if (search_key_ == 36) {
                 if (addon_query_.size() < 60) addon_query_ += ' ';
         } else if (search_key_ == 37) {
                 if (!addon_query_.empty()) addon_query_.pop_back();
-        } else {
+        } else if (search_key_ == 38) {
                 addon_query_.clear();
         }
 
@@ -721,59 +748,89 @@ void AddonsScreen::update_search(uint32_t pressed) {
 }
 
 void AddonsScreen::draw_search(Renderer &r) {
-        r.rect(0, 0, W, 1080, theme::BASE_100.with_alpha(0.96f));
-        const float w = 1400;
-        const float h = 920;
-        const float x = (W - w) / 2;
-        const float y = (1080 - h) / 2;
-        const float pad = 32;
-        const float gap = 10;
-        const float cw = (w - 2 * pad - 5 * gap) / 6;
-        const float ch = 72;
-        const float top = y + 210;
+        using i18n::Text;
+        r.rect(0, 0, W, 1080, theme::BASE_100.with_alpha(0.98f));
 
-        r.rounded_rect(x, y, w, h, theme::radius_box(), theme::BASE_200);
-        r.text(fonts_.section, i18n::tr(i18n::Text::ADDONS_SEARCH),
-                x + pad, y + 64, theme::BASE_CONTENT);
-        r.rounded_rect(x + pad - 2, y + 100, w - 2 * pad + 4, 78,
-                theme::radius_field(), theme::PRIMARY);
-        r.rounded_rect(x + pad, y + 102, w - 2 * pad, 74,
-                theme::radius_field(), theme::BASE_300);
+        const float w = 1220, h = 940;
+        const float x = (W - w) / 2, y = (1080 - h) / 2;
+        const float pad = 40, gap = 14;
+        const float inner_w = w - 2 * pad;
+        const float top = y + 230;
+        const float key_h = 66;
+        const float key_w = (inner_w - 5 * gap) / 6;
+        const float action_w = (inner_w - 3 * gap) / 4;
+        const float action_y = top + 6 * (key_h + gap) + 10;
+
+        r.rounded_rect(x + 8, y + 12, w, h,
+                theme::radius_box(), theme::BASE_100);
+        r.rounded_rect(x, y, w, h,
+                theme::radius_box(), theme::BASE_200);
+        r.rounded_rect(x + pad, y + 26, 64, 5,
+                2.5f, theme::PRIMARY);
+
+        r.text(fonts_.section,
+                fonts_.section.ellipsize(i18n::tr(Text::ADDONS_SEARCH), inner_w),
+                x + pad, y + 86, theme::BASE_CONTENT);
+
+        const float field_y = y + 116;
+        r.rounded_rect(x + pad, field_y, inner_w, 82,
+                theme::radius_field(), theme::BASE_100);
+        r.rounded_rect(x + pad + 18, field_y + 20, 4, 42,
+                2, theme::PRIMARY);
 
         const std::string query = addon_query_.empty() ? "_" : addon_query_;
         r.text(fonts_.body,
-                fonts_.body.ellipsize(query, w - 2 * pad - S(24)),
-                x + pad + 18, y + 139 + fonts_.body.size() * 0.36f, theme::BASE_CONTENT);
+                fonts_.body.ellipsize(query, inner_w - 68),
+                x + pad + 40,
+                field_y + 41 + fonts_.body.size() * 0.36f,
+                theme::BASE_CONTENT);
 
         const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-        for (int i = 0; i < 39; ++i) {
-                const int row = i < 36 ? i / 6 : 6;
-                const int col = i < 36 ? i % 6 : (i - 36) * 2;
-                const int span = i < 36 ? 1 : 2;
-                const float kw = span * cw + (span - 1) * gap;
+        for (int i = 0; i < 40; ++i) {
+                const bool action = i >= 36;
+                const bool done = i == 39;
+                const bool focused = i == search_key_;
+                const float kw = action ? action_w : key_w;
+                const float kh = action ? 76 : key_h;
+                const float kx = x + pad
+                        + (action ? i - 36 : i % 6) * (kw + gap);
+                const float ky = action ? action_y : top + (i / 6) * (key_h + gap);
+
                 std::string label;
-                if (i < 36) label = std::string(1, chars[i]);
-                else label = i18n::label(
-                        i == 36 ? "Space" : i == 37 ? "Delete" : "Clear");
-                ui::chip(r, fonts_.body, fonts_.body.ellipsize(label, kw - S(12)),
-                        x + pad + col * (cw + gap),
-                        top + row * (ch + gap), kw, ch,
-                        i == search_key_, i == search_key_ ? 1.0f : 0.0f,
-                        i >= 36 ? theme::BASE_300 : theme::BASE_200);
+                if (!action) label = std::string(1, chars[i]);
+                else if (i == 36) label = i18n::tr(Text::SPACE);
+                else if (i == 37) label = i18n::tr(Text::DELETE_KEY);
+                else if (i == 38) label = i18n::tr(Text::CLEAR);
+                else label = i18n::tr(Text::ADDONS_SEARCH_DONE);
+
+                if (focused) {
+                        r.rounded_rect(kx - 3, ky - 3, kw + 6, kh + 6,
+                                theme::radius_field() + 3, theme::PRIMARY);
+                }
+
+                const Color fill = focused ? theme::PRIMARY
+                        : done ? mix(theme::BASE_300, theme::PRIMARY, 0.45f)
+                        : action ? theme::BASE_300 : theme::BASE_100;
+                r.rounded_rect(kx, ky, kw, kh,
+                        theme::radius_field(), fill);
+
+                Font &font = action ? fonts_.body : fonts_.card_title;
+                label = font.ellipsize(label, kw - 24);
+                r.text(font, label,
+                        kx + (kw - font.measure(label)) / 2,
+                        ky + kh / 2 + font.size() * 0.36f,
+                        focused || done
+                                ? theme::PRIMARY_CONTENT : theme::BASE_CONTENT);
         }
 
-        r.text(fonts_.small,
-                fonts_.small.ellipsize(
-                        i18n::tr(i18n::Text::ADDONS_SEARCH_CLEAR_NOTE),
-                        w - 2 * pad),
-                x + pad, y + h - 96, theme::BASE_CONTENT_MUTED);
-
+        r.rect(x + pad, y + h - 106, inner_w, 1, theme::BASE_300);
         ui::hints(r, fonts_.small,
                 {
-                        { "\xC3\x97", i18n::tr(i18n::Text::ADDONS_SEARCH_TYPE) },
-                        { "\xE2\x97\x8B", i18n::tr(i18n::Text::ADDONS_SEARCH_CLOSE) }
+                        { "\xC3\x97", i18n::tr(Text::ADDONS_SEARCH_TYPE) },
+                        { "R2", i18n::tr(Text::ADDONS_SEARCH_DONE) },
+                        { "\xE2\x97\x8B", i18n::tr(Text::ADDONS_SEARCH_CLOSE) }
                 },
-                x + pad, y + h - 40);
+                x + pad, y + h - 48);
 }
 
 void AddonsScreen::update(double dt, uint32_t pressed) {

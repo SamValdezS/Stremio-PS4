@@ -257,8 +257,9 @@ inline const char *es(Text key) {
         case Text::ADDONS_PHONE_UNSUPPORTED: return "Esta URL no permite construir el enlace estándar de configuración. Configúralo desde otro cliente de Stremio.";
         case Text::ADDONS_PHONE_QR_ERROR: return "No se pudo generar el QR de configuración.";
         case Text::ADDONS_HINT_BACK: return "Volver";
-        case Text::ADDONS_SEARCH_TYPE: return "Escribir";
-        case Text::ADDONS_SEARCH_CLOSE: return "Cerrar y ver resultados";
+        case Text::ADDONS_SEARCH_TYPE: return "Seleccionar";
+        case Text::ADDONS_SEARCH_DONE: return "Listo";
+        case Text::ADDONS_SEARCH_CLOSE: return "Borrar y cerrar";
         case Text::ADDONS_SEARCH_CLEAR_NOTE: return "Selecciona «Limpiar» para mostrar todos los complementos.";
         case Text::ADDONS_PHONE_STEP_SCAN: return "Escanea el QR con el teléfono para abrir la configuración del complemento.";
         case Text::ADDONS_PHONE_STEP_INSTALL: return "Elige tus ajustes y termina de instalar en Stremio con la misma cuenta que usas en esta PS4.";

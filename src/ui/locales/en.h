@@ -257,8 +257,9 @@ inline const char *en(Text key) {
         case Text::ADDONS_PHONE_UNSUPPORTED: return "This add-on URL does not support the standard configuration link. Configure it from another Stremio client.";
         case Text::ADDONS_PHONE_QR_ERROR: return "Could not generate the configuration QR code.";
         case Text::ADDONS_HINT_BACK: return "Back";
-        case Text::ADDONS_SEARCH_TYPE: return "Type";
-        case Text::ADDONS_SEARCH_CLOSE: return "Close and view results";
+        case Text::ADDONS_SEARCH_TYPE: return "Select";
+        case Text::ADDONS_SEARCH_DONE: return "Done";
+        case Text::ADDONS_SEARCH_CLOSE: return "Clear and close";
         case Text::ADDONS_SEARCH_CLEAR_NOTE: return "Select Clear to show all add-ons.";
         case Text::ADDONS_PHONE_STEP_SCAN: return "Scan the QR code with your phone to open the add-on configuration.";
         case Text::ADDONS_PHONE_STEP_INSTALL: return "Choose your settings and finish installing in Stremio using the same account as this PS4.";
