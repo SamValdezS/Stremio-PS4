@@ -102,9 +102,9 @@ std::string addon_server(const std::string &url) {
 } // namespace
 
 const std::vector<Addon> &AddonsScreen::current_addons() const {
-	if (filter_ == 0) return stremio().addons();
-	const auto &state = *catalogs_[filter_ - 1];
-	if (filter_ != 2 || addon_query_.empty()) return state.items;
+	if (filter_ == FILTER_INSTALLED) return stremio().addons();
+	const auto &state = *catalogs_[filter_ - FILTER_OFFICIAL];
+	if (filter_ != FILTER_COMMUNITY || addon_query_.empty()) return state.items;
 	if (filtered_revision_ != state.revision
 		|| filtered_query_ != addon_query_) {
 		filtered_addons_.clear();
@@ -120,7 +120,7 @@ const std::vector<Addon> &AddonsScreen::current_addons() const {
 }
 
 void AddonsScreen::set_filter(int filter) {
-	filter = std::clamp(filter, 0, 2);
+	filter = std::clamp<int>(filter, FILTER_INSTALLED, FILTER_COMMUNITY);
 	if (filter == filter_) return;
 	filter_ = filter;
 	selected_ = 0;
@@ -130,8 +130,8 @@ void AddonsScreen::set_filter(int filter) {
 }
 
 void AddonsScreen::load_catalog(bool force) {
-	if (filter_ == 0) return;
-	const int index = filter_ - 1;
+	if (filter_ == FILTER_INSTALLED) return;
+	const int index = filter_ - FILTER_OFFICIAL;
 	auto state = catalogs_[index];
 	if (state->loading || (state->loaded && !force)) return;
 
@@ -141,7 +141,7 @@ void AddonsScreen::load_catalog(bool force) {
 	// Public catalogs: community directory and official catalog.
 	// No account credentials are sent to these endpoints.
 	http::Request request;
-	request.url = index == 1
+	request.url = filter_ == FILTER_COMMUNITY
 		? "https://stremio-addons.net/api/addon_catalog/all/stremio-addons.net.json"
 		: "https://v3-cinemeta.strem.io/addon_catalog/all/official.json";
 	request.max_body = 8 * 1024 * 1024;
@@ -184,7 +184,7 @@ void AddonsScreen::load_catalog(bool force) {
 }
 
 void AddonsScreen::draw_filters(Renderer &r) {
-	const i18n::Text labels[] = {
+	const i18n::Text labels[FILTER_COUNT] = {
 		i18n::Text::ADDONS_FILTER_INSTALLED,
 		i18n::Text::ADDONS_FILTER_OFFICIAL,
 		i18n::Text::ADDONS_FILTER_COMMUNITY
@@ -192,9 +192,9 @@ void AddonsScreen::draw_filters(Renderer &r) {
 	const float y = S(168);
 	const float pad = S(6);
 	const float height = S(46);
-	float widths[3];
+	float widths[FILTER_COUNT];
 	float total = 0;
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < FILTER_COUNT; ++i) {
 		widths[i] = std::max(S(150),
 			ui::chip_width(fonts_.body, i18n::tr(labels[i])));
 		total += widths[i];
@@ -213,14 +213,14 @@ void AddonsScreen::draw_filters(Renderer &r) {
 		box_x + box_w + mark_gap, mark_y);
 
 	float x = box_x + pad;
-	for (int i = 0; i < 3; ++i) {
+	for (int i = 0; i < FILTER_COUNT; ++i) {
 		ui::chip(r, fonts_.body, i18n::tr(labels[i]), x, y + pad,
 			widths[i], height, i == filter_,
 			on_filters_ && i == filter_ ? 1.0f : 0.0f,
 			theme::BASE_200);
 		x += widths[i];
 	}
-	if (filter_ == 2) {
+	if (filter_ == FILTER_COMMUNITY) {
 		const float hint_x = box_x + box_w + mark_gap
 			+ ui::kbd_width(fonts_.small, "R2") + S(26);
 		const float available = W - MARGIN - hint_x;
@@ -270,7 +270,7 @@ void AddonsScreen::activate_addon() {
 	if (selected_ < 0 || selected_ >= (int)items.size()) return;
 	const Addon &addon = items[selected_];
 
-	if (filter_ == 0) {
+	if (filter_ == FILTER_INSTALLED) {
 		if (addon.is_protected) {
 			toast_.show(i18n::tr(Text::ADDONS_PROTECTED), true);
 			return;
@@ -285,7 +285,7 @@ void AddonsScreen::activate_addon() {
 	// Freeze the exact target before displaying the confirmation.
 	confirmed_addon_ = addon;
 	confirm_auth_rev_ = s.auth_rev;
-	confirm_install_ = filter_ != 0;
+	confirm_install_ = filter_ != FILTER_INSTALLED;
 	confirm_ok_ = false;
 	config_option_ = 0;
 	config_options_open_ = confirm_install_
@@ -379,7 +379,7 @@ void AddonsScreen::draw_action(Renderer &r) {
 		|| !stremio().addons_loaded()
 		|| !stremio().addons_error().empty()) {
 		label = Text::ADDONS_COLLECTION_UNAVAILABLE;
-	} else if (filter_ == 0) {
+	} else if (filter_ == FILTER_INSTALLED) {
 		label = addon.is_protected
 			? Text::ADDONS_PROTECTED_SHORT : Text::ADDONS_UNINSTALL;
 	} else if (is_installed(addon)) {
@@ -866,7 +866,7 @@ void AddonsScreen::update(double dt, uint32_t pressed) {
 		return;
 	}
 
-	if (filter_ == 2 && (pressed & platform::BUTTON_TRIANGLE)) {
+	if (filter_ == FILTER_COMMUNITY && (pressed & platform::BUTTON_TRIANGLE)) {
 		searching_ = true;
 		on_bar_ = false;
 		on_filters_ = false;
@@ -876,7 +876,8 @@ void AddonsScreen::update(double dt, uint32_t pressed) {
 	const bool previous_filter = (pressed & platform::BUTTON_L2) != 0;
 	const bool next_filter = (pressed & platform::BUTTON_R2) != 0;
 	if (previous_filter != next_filter) {
-		set_filter((filter_ + (next_filter ? 1 : 2)) % 3);
+		set_filter((filter_ + (next_filter ? 1 : FILTER_COUNT - 1))
+				% FILTER_COUNT);
 		on_bar_ = false;
 		on_filters_ = true;
 		pressed = 0;
@@ -916,7 +917,7 @@ void AddonsScreen::update(double dt, uint32_t pressed) {
 	}
 
 	if (pressed & platform::BUTTON_SQUARE) {
-		if (filter_ != 0) {
+		if (filter_ != FILTER_INSTALLED) {
 			load_catalog(true);
 		} else if (!stremio().logged_in()) {
 			toast_.show(i18n::tr(i18n::Text::ADDONS_SIGN_IN), true);
@@ -954,7 +955,7 @@ void AddonsScreen::draw(Renderer &r) {
 	bool failed = false;
 	bool loading = false;
 
-	if (filter_ == 0) {
+	if (filter_ == FILTER_INSTALLED) {
 		failed = !s.addons_error().empty();
 		loading = !s.addons_loaded();
 		if (failed) {
@@ -967,7 +968,7 @@ void AddonsScreen::draw(Renderer &r) {
 				+ std::to_string(addons.size());
 		}
 	} else {
-		const auto &state = *catalogs_[filter_ - 1];
+		const auto &state = *catalogs_[filter_ - FILTER_OFFICIAL];
 		failed = state.failed;
 		loading = state.loading;
 		if (loading) status = i18n::tr(i18n::Text::LOADING_ADDONS);
@@ -1000,9 +1001,9 @@ void AddonsScreen::draw(Renderer &r) {
 
 	if (addons.empty()) {
 		if (!loading && !failed) {
-			r.text(fonts_.body, i18n::tr(filter_ == 0
+			r.text(fonts_.body, i18n::tr(filter_ == FILTER_INSTALLED
 				? i18n::Text::ADDONS_EMPTY
-				: filter_ == 2 && !addon_query_.empty()
+				: filter_ == FILTER_COMMUNITY && !addon_query_.empty()
 					? i18n::Text::ADDONS_SEARCH_EMPTY
 					: i18n::Text::ADDONS_CATALOG_EMPTY),
 				MARGIN, list_y() + S(40), theme::BASE_CONTENT_MUTED);
@@ -1057,7 +1058,7 @@ void AddonsScreen::draw(Renderer &r) {
 		{ "\xE2\x96\xA1", i18n::tr(i18n::Text::ADDONS_HINT_RELOAD) },
 		{ "\xE2\x9C\x9A", i18n::tr(i18n::Text::ADDONS_HINT_NAVIGATION) }
 	};
-	if (filter_ == 2) {
+	if (filter_ == FILTER_COMMUNITY) {
 		hints.push_back({
 			"\xE2\x96\xB3",
 			i18n::tr(i18n::Text::ADDONS_SEARCH)

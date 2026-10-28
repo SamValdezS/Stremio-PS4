@@ -17,6 +17,13 @@ public:
 	void draw(Renderer &r) override;
 
 private:
+	enum Filter : int {
+		FILTER_INSTALLED = 0,
+		FILTER_OFFICIAL,
+		FILTER_COMMUNITY,
+		FILTER_COUNT
+	};
+
 	struct CatalogState {
 		std::vector<Addon> items;
 		bool loading = false;
@@ -63,9 +70,9 @@ private:
 	int confirm_auth_rev_ = -1;
 	Addon confirmed_addon_;
 
-	int filter_ = 0;
+	int filter_ = FILTER_INSTALLED;
 	bool on_filters_ = false;
-	std::shared_ptr<CatalogState> catalogs_[2] = {
+	std::shared_ptr<CatalogState> catalogs_[FILTER_COUNT - FILTER_OFFICIAL] = {
 		std::make_shared<CatalogState>(),
 		std::make_shared<CatalogState>()
 	};
