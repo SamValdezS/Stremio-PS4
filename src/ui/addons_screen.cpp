@@ -19,6 +19,15 @@ using theme::S;
 const float W = 1920;
 const float MARGIN = 120;
 
+constexpr char SEARCH_CHARACTERS[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+constexpr int SEARCH_CHARACTER_COUNT = sizeof(SEARCH_CHARACTERS) - 1;
+constexpr int SEARCH_SPACE = SEARCH_CHARACTER_COUNT;
+constexpr int SEARCH_DELETE = SEARCH_SPACE + 1;
+constexpr int SEARCH_CLEAR = SEARCH_SPACE + 2;
+constexpr int SEARCH_DONE = SEARCH_SPACE + 3;
+constexpr int SEARCH_KEY_COUNT = SEARCH_DONE + 1;
+constexpr std::string::size_type SEARCH_QUERY_LIMIT = 60;
+
 float list_x() { return MARGIN; }
 float list_y() { return S(260); }
 float list_w() { return std::min(S(480), 560.0f); }
@@ -686,9 +695,9 @@ void AddonsScreen::draw_phone_config(Renderer &r) {
 }
 
 void AddonsScreen::move_search_selection(uint32_t pressed) {
-	search_key_ = std::clamp(search_key_, 0, 39);
-	int row = search_key_ < 36 ? search_key_ / 6 : 6;
-	int col = search_key_ < 36 ? search_key_ % 6 : search_key_ - 36;
+	search_key_ = std::clamp(search_key_, 0, (SEARCH_KEY_COUNT - 1));
+	int row = search_key_ < SEARCH_CHARACTER_COUNT ? search_key_ / 6 : 6;
+	int col = search_key_ < SEARCH_CHARACTER_COUNT ? search_key_ % 6 : search_key_ - SEARCH_CHARACTER_COUNT;
 
 	const int columns = row == 6 ? 4 : 6;
 	if (pressed & platform::BUTTON_LEFT)
@@ -704,7 +713,32 @@ void AddonsScreen::move_search_selection(uint32_t pressed) {
 		++row;
 	}
 
-	search_key_ = row < 6 ? row * 6 + col : 36 + col;
+	search_key_ = row < 6 ? row * 6 + col : SEARCH_CHARACTER_COUNT + col;
+}
+
+void AddonsScreen::activate_search_key() {
+	if (search_key_ == SEARCH_DONE) {
+		searching_ = false;
+		return;
+	}
+
+	const std::string before = addon_query_;
+	if (search_key_ < SEARCH_SPACE) {
+		if (addon_query_.size() < SEARCH_QUERY_LIMIT)
+			addon_query_ += SEARCH_CHARACTERS[search_key_];
+	} else if (search_key_ == SEARCH_SPACE) {
+		if (addon_query_.size() < SEARCH_QUERY_LIMIT) addon_query_ += ' ';
+	} else if (search_key_ == SEARCH_DELETE) {
+		if (!addon_query_.empty()) addon_query_.pop_back();
+	} else if (search_key_ == SEARCH_CLEAR) {
+		addon_query_.clear();
+	}
+
+	if (addon_query_ != before) {
+		selected_ = 0;
+		scroll_ = 0;
+		focus_.clear();
+	}
 }
 
 void AddonsScreen::update_search(uint32_t pressed) {
@@ -725,30 +759,7 @@ void AddonsScreen::update_search(uint32_t pressed) {
 
 	move_search_selection(pressed);
 	if (!(pressed & platform::BUTTON_ACCEPT)) return;
-
-	if (search_key_ == 39) {
-		searching_ = false;
-		return;
-	}
-
-	const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-	const std::string before = addon_query_;
-	if (search_key_ < 36) {
-		if (addon_query_.size() < 60)
-			addon_query_ += chars[search_key_];
-	} else if (search_key_ == 36) {
-		if (addon_query_.size() < 60) addon_query_ += ' ';
-	} else if (search_key_ == 37) {
-		if (!addon_query_.empty()) addon_query_.pop_back();
-	} else if (search_key_ == 38) {
-		addon_query_.clear();
-	}
-
-	if (addon_query_ != before) {
-		selected_ = 0;
-		scroll_ = 0;
-		focus_.clear();
-	}
+	activate_search_key();
 }
 
 void AddonsScreen::draw_search(Renderer &r) {
@@ -789,22 +800,21 @@ void AddonsScreen::draw_search(Renderer &r) {
 		field_y + 41 + fonts_.body.size() * 0.36f,
 		theme::BASE_CONTENT);
 
-	const std::string chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-	for (int i = 0; i < 40; ++i) {
-		const bool action = i >= 36;
-		const bool done = i == 39;
+	for (int i = 0; i < SEARCH_KEY_COUNT; ++i) {
+		const bool action = i >= SEARCH_SPACE;
+		const bool done = i == SEARCH_DONE;
 		const bool focused = i == search_key_;
 		const float kw = action ? action_w : key_w;
 		const float kh = action ? 76 : key_h;
 		const float kx = x + pad
-			+ (action ? i - 36 : i % 6) * (kw + gap);
+			+ (action ? i - SEARCH_SPACE : i % 6) * (kw + gap);
 		const float ky = action ? action_y : top + (i / 6) * (key_h + gap);
 
 		std::string label;
-		if (!action) label = std::string(1, chars[i]);
-		else if (i == 36) label = i18n::tr(Text::SPACE);
-		else if (i == 37) label = i18n::tr(Text::DELETE_KEY);
-		else if (i == 38) label = i18n::tr(Text::CLEAR);
+		if (!action) label = std::string(1, SEARCH_CHARACTERS[i]);
+		else if (i == SEARCH_SPACE) label = i18n::tr(Text::SPACE);
+		else if (i == SEARCH_DELETE) label = i18n::tr(Text::DELETE_KEY);
+		else if (i == SEARCH_CLEAR) label = i18n::tr(Text::CLEAR);
 		else label = i18n::tr(Text::ADDONS_SEARCH_DONE);
 
 		if (focused) {

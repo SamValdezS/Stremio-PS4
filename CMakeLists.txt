@@ -113,6 +113,7 @@ if(STREMIO_TESTS)
         tests/test_subtitles.cpp
         tests/test_torrent.cpp
         tests/test_urls.cpp
+        tests/test_addon_search.cpp
         src/net/urls.cpp
         src/torrent/bencode.cpp
         src/torrent/magnet.cpp

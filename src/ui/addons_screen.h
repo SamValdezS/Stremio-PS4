@@ -38,6 +38,7 @@ private:
 	void draw_filters(Renderer &r);
 	void update_search(uint32_t pressed);
 	void move_search_selection(uint32_t pressed);
+	void activate_search_key();
 	void draw_search(Renderer &r);
 
 	bool searching_ = false;
