@@ -685,22 +685,7 @@ void AddonsScreen::draw_phone_config(Renderer &r) {
 	toast_.draw(r, fonts_.body, W / 2, 210);
 }
 
-void AddonsScreen::update_search(uint32_t pressed) {
-	if (pressed & platform::BUTTON_BACK) {
-		addon_query_.clear();
-		selected_ = 0;
-		scroll_ = 0;
-		focus_.clear();
-		search_key_ = 0;
-		searching_ = false;
-		return;
-	}
-
-	if (pressed & platform::BUTTON_R2) {
-		searching_ = false;
-		return;
-	}
-
+void AddonsScreen::move_search_selection(uint32_t pressed) {
 	search_key_ = std::clamp(search_key_, 0, 39);
 	int row = search_key_ < 36 ? search_key_ / 6 : 6;
 	int col = search_key_ < 36 ? search_key_ % 6 : search_key_ - 36;
@@ -720,6 +705,25 @@ void AddonsScreen::update_search(uint32_t pressed) {
 	}
 
 	search_key_ = row < 6 ? row * 6 + col : 36 + col;
+}
+
+void AddonsScreen::update_search(uint32_t pressed) {
+	if (pressed & platform::BUTTON_BACK) {
+		addon_query_.clear();
+		selected_ = 0;
+		scroll_ = 0;
+		focus_.clear();
+		search_key_ = 0;
+		searching_ = false;
+		return;
+	}
+
+	if (pressed & platform::BUTTON_R2) {
+		searching_ = false;
+		return;
+	}
+
+	move_search_selection(pressed);
 	if (!(pressed & platform::BUTTON_ACCEPT)) return;
 
 	if (search_key_ == 39) {
